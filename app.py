@@ -6,7 +6,8 @@ import json
 import datetime
 
 app = Flask(__name__)
-allowed_ids = {}
+with open("allowed.json", 'r') as f:
+    allowed_ids = json.load(f) 
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -18,6 +19,7 @@ def webhook():
         dt = datetime.datetime.strptime(rq["received_at"].split(".")[0], "%Y-%m-%dT%H:%M:%S")
         msg = "Received at " + dt.strftime("%H:%M:%S %Y-%m-%d") + "\n"
         dev_id=(rq["end_device_ids"]["device_id"])
+        location=None
         if(dev_id in allowed_ids.keys()):
             dev_name = allowed_ids[dev_id]
             if("join_accept" in rq.keys()):
@@ -26,7 +28,6 @@ def webhook():
             if("uplink_message" in rq.keys()):
                 logging.info("Uplink message")
                 data = rq["uplink_message"]["decoded_payload"]
-                location=None
                 if (dev_name == "tracker"):
                     msg=msg + f'{dev_name}: Alarm = {data["ALARM_status"]}\nBattery={data["BatV"]}'
                     location = (str(data["latitude"]),str(data["longitude"]))
@@ -47,7 +48,6 @@ def webhook():
 
 if __name__ == '__main__':
     logging.basicConfig(format='%(levelname)s:%(message)s', datefmt='%Y/%m/%d %H:%M:%S', level=logging.INFO, filename='/root/webhooktest/iot.log')
-    # logging.getLogger().addHandler(logging.StreamHandler())
-    with open("allowed.json", 'r') as f:
-        allowed_ids = json.load(f)
+    logging.getLogger().addHandler(logging.StreamHandler())
     app.run(host="0.0.0.0")
+

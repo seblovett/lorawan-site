@@ -4,8 +4,23 @@ from flask import Flask, request, abort
 from telegram_send import send
 import json
 import datetime
+from flask_restful import reqparse, abort, Api, Resource
+
+devices = {
+    # 'name' : { 
+    #         'timestamp' : {    
+    #             'battery' : 0,
+    #             'alarm' : False,
+    #             'door_state' : None,
+    #             'latitude' : None,
+    #             'longitude' : None
+    #         }
+    # }
+}
 
 app = Flask(__name__)
+api = Api(app)
+
 with open("allowed.json", 'r') as f:
     allowed_ids = json.load(f) 
 
@@ -29,6 +44,11 @@ def webhook():
                 logging.info("Uplink message")
                 data = rq["uplink_message"]["decoded_payload"]
                 if (dev_name == "tracker"):
+                    if not(dev_name in devices.keys()):
+                        devices[dev_name] = dict()
+                    data2 = dict()
+                    data2 = {"alarm":data["ALARM_status"], "Battery":data["BatV"],"lattitude":data["latitude"],'longitude':data['longitude']}
+                    devices[dev_name][str(dt)] = data2
                     msg=msg + f'{dev_name}: Alarm = {data["ALARM_status"]}\nBattery={data["BatV"]}'
                     location = (str(data["latitude"]),str(data["longitude"]))
                 if (dev_name == "door"):
@@ -38,6 +58,7 @@ def webhook():
                 if(location):
                     logging.info(location)
                 send(messages=[msg], locations=location)
+                print(devices)
         else:
             logging.error(f"{dev_id} not allowed")
             abort(401)
@@ -45,6 +66,24 @@ def webhook():
     else:
         logging.error("Upsupported request")
         abort(400)
+
+def abort_if_device_doesnt_exist(device):
+    if device not in devices:
+        abort(404, message="Device {} doesn't exist".format(device))
+
+
+class device(Resource):
+    def get(self, device):
+        abort_if_device_doesnt_exist(device)
+        return devices[device]
+
+class listdevices(Resource):
+    def get(self):
+        ds = {"devices":list(devices.keys())}
+        print(ds)
+        return {"devices":list(devices.keys())}
+api.add_resource(listdevices, "/devices")
+api.add_resource(device, '/devices/<device>')
 
 if __name__ == '__main__':
     logging.basicConfig(format='%(levelname)s:%(message)s', datefmt='%Y/%m/%d %H:%M:%S', level=logging.INFO, filename='/root/webhooktest/iot.log')

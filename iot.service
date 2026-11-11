@@ -1,0 +1,13 @@
+[Unit]
+Description=IOT Parser
+After=network.target
+StartLimitIntervalSec=0
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=root
+ExecStart=/usr/local/bin/pipenv run python /root/lorawan-site/app.py
+
+[Install]
+WantedBy=multi-user.target
